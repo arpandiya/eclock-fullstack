@@ -1,0 +1,45 @@
+spring:
+    application:
+    name: backend
+
+    jackson:
+        deserialization:
+            fail-on-null-for-primitives: false
+
+    datasource:
+        url: jdbc:mysql://localhost:3306/mydb
+        username: user
+        password: password
+        driver-class-name: com.mysql.cj.jdbc.Driver
+    jpa:
+        database-platform: org.hibernate.dialect.MySQLDialect
+        hibernate:
+            ddl-auto: update
+        show-sql: true
+        properties:
+            hibernate:
+                format_sql: true
+
+
+server:
+    port: 8080
+
+jwt:
+    secret: d2h5ZXZlcnl0aHJvdWdoc3BlbnRlbGVwaGFudGNvbG9yaGVsZHJlYWR5bG9jYXRpb24=
+    expiration: 86400000  # 24 hours in ms
+
+    web:
+        cors:
+            allowed-origins=http://localhost:5173
+            allowed-methods=GET,POST,PUT,DELETE,PATCH,OPTIONS
+            allowed-headers=*
+            max-age=3600
+
+
+
+
+
+
+logging:
+    level:
+        org.springframework.security: DEBUG
