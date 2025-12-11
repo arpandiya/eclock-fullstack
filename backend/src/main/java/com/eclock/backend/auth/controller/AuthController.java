@@ -11,15 +11,19 @@ import com.eclock.backend.auth.repository.UserRepository;
 import com.eclock.backend.auth.service.MyUserDetailsService;
 import com.eclock.backend.auth.util.JwtUtil;
 import jakarta.servlet.http.Cookie;
+import jakarta.servlet.http.HttpServletResponse;
 import jakarta.validation.Valid;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.http.HttpHeaders;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.authentication.*;
+import org.springframework.security.core.Authentication;
 import org.springframework.security.core.userdetails.UserDetails;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.web.bind.annotation.*;
 
 import java.util.*;
+import java.util.stream.Collectors;
 
 @RestController
 @RequestMapping("api/auth")
@@ -102,14 +106,56 @@ public class AuthController {
         final UserDetails userDetails = userDetailsService.loadUserByUsername(request.getUsername());
         final String jwt = jwtUtil.generateToken(userDetails);
 
-        Cookie cookie = new Cookie("Authorization","Bearer " + jwt);
-        cookie.setHttpOnly(true);
+        Cookie cookie = new Cookie("Authorization", "Bearer " + jwt);
+        cookie.setHttpOnly(true);        // Critical: JS cannot read it
+        cookie.setSecure(true);           // MUST be true in production (HTTPS only)
         cookie.setPath("/");
-        cookie.setMaxAge(60 * 60 * 24);
-        cookie.setSecure(false);
+        cookie.setMaxAge(24 * 60 * 60);   // 1 day
+        cookie.setAttribute("SameSite", "Strict"); // or "Lax" if you need cross-site
+
+        HttpHeaders headers = new HttpHeaders();
+        headers.add(HttpHeaders.SET_COOKIE, cookie.toString());
 
 
-        return ResponseEntity.ok(Map.of("token", cookie));
+        return ResponseEntity.ok()
+            .headers(headers)
+            .body(Map.of("message", "Login successful"));
+    }
+
+    @PostMapping("/logout")
+    public ResponseEntity<?> logout(HttpServletResponse response) {
+        Cookie cookie = new Cookie("Authorization", "");
+        cookie.setHttpOnly(true);
+        cookie.setSecure(true);
+        cookie.setPath("/");
+        cookie.setMaxAge(0); // delete cookie
+        cookie.setAttribute("SameSite", "Strict");
+
+        HttpHeaders headers = new HttpHeaders();
+        headers.add(HttpHeaders.SET_COOKIE, cookie.toString());
+
+        return ResponseEntity.ok()
+            .headers(headers)
+            .body(Map.of("message", "Logged out"));
+    }
+
+    @GetMapping("/authenticated-user")
+    public ResponseEntity<?> getCurrentUser(Authentication authentication) {
+        if (authentication == null || !authentication.isAuthenticated()) {
+            return ResponseEntity.status(401).body("Not authenticated");
+        }
+
+        User user = (User) authentication.getPrincipal();
+
+        Map<String, Object> response = new HashMap<>();
+        assert user != null;
+        response.put("username", user.getUsername());
+        response.put("email", user.getEmail());
+        response.put("roles", user.getRoles().stream()
+            .map(Role::getName)
+            .collect(Collectors.toList()));
+
+        return ResponseEntity.ok(response);
     }
 
 

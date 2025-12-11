@@ -46,7 +46,6 @@ public class DataInitializer implements CommandLineRunner {
     private PasswordEncoder passwordEncoder;
 
     @Override
-    @Transactional
     public void run(String... args) throws Exception {
         // Only seed if no users exist
         if (userRepository.count() == 0) {
@@ -68,7 +67,7 @@ public class DataInitializer implements CommandLineRunner {
 
         // Create a sample user
         User sampleUser = User.builder()
-            .username("john.doe")
+            .username("arpan")
             .password(passwordEncoder.encode("password123"))
             .email("john.doe@example.com")
             .enabled(true)
