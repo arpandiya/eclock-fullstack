@@ -1,5 +1,6 @@
 import React from 'react'
 import { useQueryClient, useQuery, useMutation } from '@tanstack/react-query';
+import TimeCard from '../employee/TimeCard';
 
 
 
@@ -58,6 +59,14 @@ export default function AdminDashboard() {
         <MenuCard title="Timesheet" />
         <MenuCard title="Task" />
         <MenuCard title="Setting" />
+       </div>
+
+    <div className='flex flex-wrap '>
+       <TimeCard />
+       <TimeCard />
+       <TimeCard />
+       <TimeCard />
+       <TimeCard />
        </div>
     </div>
   )
