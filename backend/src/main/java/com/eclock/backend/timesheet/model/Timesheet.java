@@ -1,7 +1,7 @@
 package com.eclock.backend.timesheet.model;
 
 
-import com.eclock.backend.auth.model.User;
+import com.eclock.backend.auth.model.AppUser;
 import jakarta.persistence.*;
 import lombok.*;
 import java.time.LocalDate;
@@ -22,7 +22,7 @@ public class Timesheet {
 
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "user_id", nullable = false)
-    private User employee;
+    private AppUser employee;
 
     @Column(nullable = false)
     private LocalDate date;

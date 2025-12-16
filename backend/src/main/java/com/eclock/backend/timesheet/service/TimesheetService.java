@@ -1,8 +1,8 @@
 package com.eclock.backend.timesheet.service;
 
 
-import com.eclock.backend.auth.model.User;
-import com.eclock.backend.auth.repository.UserRepository;
+import com.eclock.backend.auth.model.AppUser;
+import com.eclock.backend.auth.repository.AppUserRepository;
 import com.eclock.backend.timesheet.dto.TimesheetDto;
 import com.eclock.backend.timesheet.model.Timesheet;
 import com.eclock.backend.timesheet.repository.TimesheetRepository;
@@ -23,10 +23,10 @@ public class TimesheetService {
     private TimesheetRepository timesheetRepository;
 
     @Autowired
-    private UserRepository userRepository;
+    private AppUserRepository userRepository;
 
     public Timesheet createTimesheet(String username, TimesheetDto timesheetDto) {
-        User employee = userRepository.findByUsername(username)
+        AppUser employee = userRepository.findByUsername(username)
             .orElseThrow(() -> new UsernameNotFoundException("User not found"));
 
         if (timesheetRepository.existsByEmployeeIdAndDate(employee.getId(), timesheetDto.getDate())) {
@@ -64,7 +64,7 @@ public class TimesheetService {
     }
 
     public List<Timesheet> getEmployeeTimesheets(String username, LocalDate startDate, LocalDate endDate) {
-        User employee = userRepository.findByUsername(username)
+        AppUser employee = userRepository.findByUsername(username)
             .orElseThrow(() -> new UsernameNotFoundException("User not found"));
 
         if (startDate != null && endDate != null) {

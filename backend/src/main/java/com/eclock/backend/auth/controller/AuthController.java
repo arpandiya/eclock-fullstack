@@ -1,122 +1,133 @@
 package com.eclock.backend.auth.controller;
 
-import com.eclock.backend.auth.dto.AuthRequest;
-import com.eclock.backend.auth.dto.RegisterDto;
-import com.eclock.backend.auth.model.Permission;
-import com.eclock.backend.auth.model.Role;
-import com.eclock.backend.auth.model.User;
-import com.eclock.backend.auth.repository.PermissionRepository;
-import com.eclock.backend.auth.repository.RoleRepository;
-import com.eclock.backend.auth.repository.UserRepository;
-import com.eclock.backend.auth.service.MyUserDetailsService;
-import com.eclock.backend.auth.util.JwtUtil;
+
+import com.eclock.backend.auth.model.AppUser;
+import com.eclock.backend.auth.records.AccountCredentials;
+import com.eclock.backend.auth.records.RegisterRequest;
+import com.eclock.backend.auth.service.IUserService;
+import com.eclock.backend.auth.service.impl.UserService;
+import com.eclock.backend.auth.util.JwtService;
 import jakarta.servlet.http.Cookie;
-import jakarta.validation.Valid;
-import org.springframework.beans.factory.annotation.Autowired;
+import jakarta.servlet.http.HttpServletRequest;
+import jakarta.servlet.http.HttpServletResponse;
+import lombok.extern.slf4j.Slf4j;
+import org.springframework.http.HttpHeaders;
+import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
-import org.springframework.security.authentication.*;
-import org.springframework.security.core.userdetails.UserDetails;
+import org.springframework.security.access.prepost.PostAuthorize;
+import org.springframework.security.authentication.AuthenticationManager;
+import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
+import org.springframework.security.core.Authentication;
+import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.web.bind.annotation.*;
 
-import java.util.*;
+import java.time.Instant;
+import java.util.Date;
+import java.util.Map;
 
+@Slf4j
 @RestController
-@RequestMapping("api/auth")
-@CrossOrigin(origins = "http://localhost:5173",allowCredentials = "true", allowedHeaders = "*")
-
+@RequestMapping("/api/auth")
 public class AuthController {
+    private final JwtService jwtService;
+    private final AuthenticationManager authenticationManager;
+    private final UserService userService;
 
-    @Autowired
-    private AuthenticationManager authenticationManager;
-
-    @Autowired
-    private MyUserDetailsService userDetailsService;
-
-    @Autowired
-    private JwtUtil jwtUtil;
-
-    @Autowired
-    private UserRepository userRepository;
-
-    @Autowired
-    private RoleRepository roleRepository;
-
-    @Autowired
-    private PermissionRepository permissionRepository;
-
-    @Autowired
-    private PasswordEncoder passwordEncoder;
-
+    public AuthController(JwtService jwtService,
+                          AuthenticationManager authenticationManager
+    , UserService userService) {
+        this.jwtService = jwtService;
+        this.authenticationManager = authenticationManager;
+        this.userService = userService;
+    }
 
     @PostMapping("/register")
-    public ResponseEntity<String> register(@Valid @RequestBody RegisterDto request) {
-        if (userRepository.findByUsername(request.getUsername()).isPresent()) {
-            return ResponseEntity.badRequest().body("Username already exists");
-        }
+    public ResponseEntity<?> register(@RequestBody  RegisterRequest registerRequest) {
+        log.info("Registering user: {}", registerRequest.toString());
+        userService.register(registerRequest);
+        return ResponseEntity
+                .status(HttpStatus.CREATED)
+                .body(Map.of("message", "User registered successfully"));
 
-        User user = User.builder()
-            .username(request.getUsername())
-            .email(request.getEmail())
-            .password(passwordEncoder.encode(request.getPassword()))
-            .enabled(true)
-            .build();
 
-        Role roleUser = roleRepository.findByName("ROLE_USER")
-            .orElseGet(() -> {
-                // Create basic permissions for new user role if they don't exist
-                Permission viewProfile = permissionRepository.findByName("VIEW_PROFILE")
-                    .orElseGet(() -> permissionRepository.save(
-                        Permission.builder()
-                            .name("VIEW_PROFILE")
-                            .description("Can view own profile")
-                            .build()
-                    ));
-                Permission editProfile = permissionRepository.findByName("EDIT_PROFILE")
-                    .orElseGet(() -> permissionRepository.save(
-                        Permission.builder()
-                            .name("EDIT_PROFILE")
-                            .description("Can edit own profile")
-                            .build()
-                    ));
 
-                // Create and save the user role with basic permissions
-                return roleRepository.save(Role.builder()
-                    .name("ROLE_USER")
-                    .permissions(Set.of(viewProfile, editProfile))
-                    .build());
-            });
-
-        user.setRoles(Set.of(roleUser));
-        userRepository.save(user);
-
-        return ResponseEntity.ok("User registered successfully");
     }
+
+
+
+
+
+
+
+
+
 
     @PostMapping("/login")
-    public ResponseEntity<?> login(@RequestBody AuthRequest request) {
-        authenticationManager.authenticate(
-            new UsernamePasswordAuthenticationToken(request.getUsername(), request.getPassword())
-        );
+    public ResponseEntity<?> getToken(@RequestBody AccountCredentials credentials){
+        UsernamePasswordAuthenticationToken creds = new UsernamePasswordAuthenticationToken(credentials.username(), credentials.password());
+        Authentication auth = authenticationManager.authenticate(creds);
+        String jwts = jwtService.generateToken(auth);
 
-        final UserDetails userDetails = userDetailsService.loadUserByUsername(request.getUsername());
-        final String jwt = jwtUtil.generateToken(userDetails);
+        log.info("JWT: {}", jwts);
+        log.info("Username: {}", credentials.username());
+        log.info("Is Authenticated: {} ", SecurityContextHolder.getContext().getAuthentication().isAuthenticated());
 
-        Cookie cookie = new Cookie("Authorization","Bearer " + jwt);
-        cookie.setHttpOnly(true);
-        cookie.setPath("/");
-        cookie.setMaxAge(60 * 60 * 24);
-        cookie.setSecure(false);
+        return ResponseEntity.ok()
+                .header(HttpHeaders.AUTHORIZATION, "Bearer " + jwts)
+                .header(HttpHeaders.ACCESS_CONTROL_EXPOSE_HEADERS, HttpHeaders.AUTHORIZATION)
+                .build();
+
+    }
+
+    @PostMapping("/logout")
+    public ResponseEntity<String> logout(HttpServletRequest request,
+                                         HttpServletResponse response,
+                                         Authentication authentication) {
 
 
-        return ResponseEntity.ok(Map.of("token", cookie));
+
+        // Extract the JWT from the Authorization Header
+        final String authHeader = request.getHeader(HttpHeaders.AUTHORIZATION);
+        String jwt = null;
+
+        if (authHeader != null && authHeader.startsWith("Bearer ")) {
+            jwt = authHeader.substring(7).trim();
+        }
+
+        // If no valid Bearer token is provided, just return success (idempotent)
+        if (jwt == null) {
+            return ResponseEntity.ok("Logged out successfully (no token provided)");
+        }
+
+        try {
+            // Validate the token and extract expiration (this will throw if invalid/signature wrong)
+            Date expiration = jwtService.extractExpiration(jwt);
+            Instant expirationInstant = expiration.toInstant();
+            log.info("Logging out user: {}", authentication != null ? authentication.getName() : "unknown");
+
+            // TODO: Blacklist the token here to truly invalidate it
+            // Example (using a simple in-memory set or a service):
+            // tokenBlacklistService.blacklistToken(jwt, Duration.between(Instant.now(), expirationInstant));
+
+            // Without blacklisting, the token remains valid until natural expiration.
+            // The code below only extracts the expiration but does nothing with it.
+            // To make logout effective, you need to store the token (or its JTI) in a blacklist
+            // (e.g., Redis, database, or in-memory cache with TTL set to remaining time)
+            // and check the blacklist in your JWT filter before accepting the token.
+
+        } catch (Exception e) {
+            // Invalid token – treat as already invalid
+            log.warn("Invalid token presented on logout: {}", e.getMessage());
+        }
+
+        // Clear SecurityContext (optional, but good practice)
+        SecurityContextHolder.clearContext();
+
+        return ResponseEntity
+                .status(HttpStatus.OK)
+                .body("Logged out successfully");
     }
 
 
-//    @PostMapping("/refresh")
-//    public ResponseEntity<AuthResponse> refresh(@RequestBody RefreshRequest request) {
-//        return refreshTokenService.refreshAccessToken(request.refreshToken())
-//            .map(newTokens -> ResponseEntity.ok(newTokens))
-//            .orElseThrow(() -> new AuthException("Invalid refresh token", HttpStatus.UNAUTHORIZED));
-//    }
 }

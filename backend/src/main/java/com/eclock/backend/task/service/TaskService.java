@@ -1,8 +1,8 @@
 package com.eclock.backend.task.service;
 
 
-import com.eclock.backend.auth.model.User;
-import com.eclock.backend.auth.repository.UserRepository;
+import com.eclock.backend.auth.model.AppUser;
+import com.eclock.backend.auth.repository.AppUserRepository;
 import com.eclock.backend.task.dto.TaskDto;
 import com.eclock.backend.task.dto.TaskStatusUpdateDto;
 import com.eclock.backend.task.enums.TaskStatus;
@@ -24,10 +24,10 @@ public class TaskService {
     private TaskRepository taskRepository;
 
     @Autowired
-    private UserRepository userRepository;
+    private AppUserRepository userRepository;
 
     public Task createTask(String username, TaskDto taskDto) {
-        User employee = userRepository.findByUsername(username)
+        AppUser employee = userRepository.findByUsername(username)
             .orElseThrow(() -> new UsernameNotFoundException("User not found"));
 
         Task task = Task.builder()
@@ -75,7 +75,7 @@ public class TaskService {
     }
 
     public List<Task> getEmployeeTasks(String username, TaskStatus status) {
-        User employee = userRepository.findByUsername(username)
+        AppUser employee = userRepository.findByUsername(username)
             .orElseThrow(() -> new UsernameNotFoundException("User not found"));
 
         if (status != null) {

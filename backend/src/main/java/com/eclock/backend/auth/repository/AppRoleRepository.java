@@ -1,12 +1,12 @@
 package com.eclock.backend.auth.repository;
 
-import com.eclock.backend.auth.model.Permission;
+import com.eclock.backend.auth.model.AppRole;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.stereotype.Repository;
 
 import java.util.Optional;
 
 @Repository
-public interface PermissionRepository extends JpaRepository<Permission, Long> {
-    Optional<Permission> findByName(String name);
+public interface AppRoleRepository extends JpaRepository<AppRole, Long> {
+    Optional<AppRole> findByName(String name);
 }

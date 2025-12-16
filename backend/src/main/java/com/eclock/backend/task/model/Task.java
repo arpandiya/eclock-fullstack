@@ -1,7 +1,8 @@
 package com.eclock.backend.task.model;
 
 
-import com.eclock.backend.auth.model.User;
+import com.eclock.backend.auth.model.AppUser;
+
 import com.eclock.backend.task.enums.TaskStatus;
 import jakarta.persistence.*;
 import lombok.*;
@@ -21,7 +22,7 @@ public class Task {
 
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "employee_id", nullable = false)
-    private User employee;
+    private AppUser employee;
 
     @Column(nullable = false)
     private String title;
